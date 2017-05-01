@@ -3,7 +3,7 @@
 #define DEBUG
 
 #define PLUGIN_AUTHOR "R3TROATTACK"
-#define PLUGIN_VERSION "1.0"
+#define PLUGIN_VERSION "1.1"
 
 #include <sourcemod>
 #include <sdktools>
@@ -225,6 +225,7 @@ public Action Timer_SelectRoles(Handle timer)
 	int index = GetRandomInt(0, array.Length - 1);
 	g_iMurder = array.Get(index);
 	GivePlayerItem(g_iMurder, "weapon_knife");
+	PrintToChat(g_iMurder, " \x06[Murder] \x01You are the \x02Murder \x01kill everyone!");
 	SetEntPropEnt(g_iMurder, Prop_Data, "m_hActiveWeapon", EntRefToEntIndex(g_iFakeWeapon[g_iMurder]));
 	KillTrail(g_iMurder);
 	array.Erase(index);
