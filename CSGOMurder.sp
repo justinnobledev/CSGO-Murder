@@ -89,6 +89,7 @@ public void OnPluginStart()
 	HookEvent("round_start", Event_RoundStart);
 	HookEvent("round_end", Event_RoundEnd);
 	HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre);
+	HookEvent("player_team", Event_PlayerTeam);
 	AddCommandListener(Listern_PlayerTeam, "jointeam");
 }
 
@@ -104,6 +105,7 @@ public void OnPluginEnd()
 public void OnClientDisconnect(int client)
 {
 	ResetClient(client);
+	EnoughPlayersCheck();
 }
 
 public void OnClientPostAdminCheck(int client)
@@ -120,13 +122,20 @@ void ResetClient(int client)
 
 public Action Listern_PlayerTeam(int client, const char[] cmd, int argc)
 {
+	EnoughPlayersCheck();
+}
+
+public void EnoughPlayersCheck()
+{
 	int count = 0;
 	for (int i = 1; i <= MaxClients; i++)
 	{
 		if (IsValidClient(i))
 		{
-			if (GetClientTeam(client) > 1)
+			if (GetClientTeam(i) > 1)
+			{
 				count++;
+			}
 		}
 	}
 	if (g_bGameActive && count < g_cPlayersNeeded.IntValue)
@@ -136,6 +145,11 @@ public Action Listern_PlayerTeam(int client, const char[] cmd, int argc)
 		g_bGameActive = true;
 		ServerCommand("mp_restartgame 2");
 	}
+}
+
+public void Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
+{
+	EnoughPlayersCheck();
 }
 
 public void OnMapStart()
@@ -151,12 +165,6 @@ public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 	if (g_hRoundStartTimer != null)
 		g_hRoundStartTimer = null;
 	g_hRoundStartTimer = CreateTimer(1.0, Timer_SelectRoles);
-	if (g_hEvidenceTimer != null)
-	{
-		KillTimer(g_hEvidenceTimer);
-		g_hEvidenceTimer = null;
-	}
-	g_hEvidenceTimer = CreateTimer(20.0, Timer_NewEvidence, _, TIMER_REPEAT);
 	
 	g_hMapProps.Clear();
 	g_hActiveEvidence.Clear();
@@ -206,6 +214,13 @@ public Action Timer_SelectRoles(Handle timer)
 		PrintToChatAll(" \x06[Murder] \x02%i \x01total players are required to play!", g_cPlayersNeeded.IntValue);
 		return;
 	}
+	
+	if (g_hEvidenceTimer != null)
+	{
+		KillTimer(g_hEvidenceTimer);
+		g_hEvidenceTimer = null;
+	}
+	g_hEvidenceTimer = CreateTimer(20.0, Timer_NewEvidence, _, TIMER_REPEAT);
 	
 	int index = GetRandomInt(0, array.Length - 1);
 	g_iMurder = array.Get(index);
