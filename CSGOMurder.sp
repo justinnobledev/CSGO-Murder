@@ -285,20 +285,17 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 		}
 	}
 	
-	if(GetClientTeam(client) > 1)
+	int decoy = EntRefToEntIndex(g_iFakeWeapon[client]);
+	int active = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
+	if (active == decoy && IsValidEntity(decoy))
 	{
-		int decoy = EntRefToEntIndex(g_iFakeWeapon[client]);
-		int active = GetEntPropEnt(client, Prop_Data, "m_hActiveWeapon");
-		if (active == decoy)
-		{
-			SetEntProp(client, Prop_Data, "m_bDrawViewmodel", 0);
-			float fUnlockTime = GetGameTime() + 0.5;
-			SetEntPropFloat(client, Prop_Send, "m_flNextAttack", fUnlockTime);
-			SetEntPropFloat(decoy, Prop_Send, "m_flNextPrimaryAttack", fUnlockTime);
-		}
-		else
-			SetEntProp(client, Prop_Data, "m_bDrawViewmodel", 1);
+		SetEntProp(client, Prop_Data, "m_bDrawViewmodel", 0);
+		float fUnlockTime = GetGameTime() + 0.5;
+		SetEntPropFloat(client, Prop_Send, "m_flNextAttack", fUnlockTime);
+		SetEntPropFloat(decoy, Prop_Send, "m_flNextPrimaryAttack", fUnlockTime);
 	}
+	else
+		SetEntProp(client, Prop_Data, "m_bDrawViewmodel", 1);
 	return Plugin_Continue;
 }
 
@@ -338,7 +335,7 @@ public void CreateDeathRagdoll(int client)
 
 void CheckForWin()
 {
-	if (!IsPlayerAlive(g_iMurder))
+	if (g_iMurder == -1 || !IsPlayerAlive(g_iMurder))
 	{
 		PrintToChatAll(" \x06[Murder] \x04Innocents \x01win!");
 		CS_TerminateRound(2.0, CSRoundEnd_CTWin);
