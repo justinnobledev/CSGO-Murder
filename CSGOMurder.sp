@@ -90,6 +90,7 @@ public void OnPluginStart()
 	HookEvent("round_end", Event_RoundEnd);
 	HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre);
 	HookEvent("player_team", Event_PlayerTeam);
+	HookEvent("player_blind", Event_PlayerBlind);
 	AddCommandListener(Listern_PlayerTeam, "jointeam");
 }
 
@@ -152,6 +153,18 @@ public void Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
 	EnoughPlayersCheck();
 }
 
+public void Event_PlayerBlind(Event event, const char[] name, bool dontBroadcast)
+{
+	int userid = event.GetInt("userid");
+	int client = GetClientOfUserId(userid);
+	
+	if (IsClientInGame(client) && !IsFakeClient(client) && GetClientTeam(client) > 1)
+	{
+		float fDuration = GetEntPropFloat(client, Prop_Send, "m_flFlashDuration");
+		CreateTimer(fDuration, Timer_RemoveRadar, userid);
+	}
+}
+
 public void OnMapStart()
 {
 	PrecacheModel("materials/sprites/physbeam.vmt", true);
@@ -189,52 +202,11 @@ public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 	for (int i = 0; i < g_hActiveEvidence.Length; i++)
 	{
 		int ent = g_hActiveEvidence.Get(i);
-		if(IsValidEntity(ent))
+		if (IsValidEntity(ent))
 		{
 			SetEntProp(ent, Prop_Send, "m_bShouldGlow", 0);
 		}
 	}
-}
-
-public Action Timer_SelectRoles(Handle timer)
-{
-	ArrayList array = new ArrayList();
-	for (int i = 1; i <= MaxClients; i++)
-	{
-		if (IsValidClient(i))
-		{
-			if (GetClientTeam(i) > 1)
-				array.Push(i);
-		}
-	}
-	
-	if (g_cPlayersNeeded.IntValue > array.Length)
-	{
-		g_bGameActive = false;
-		PrintToChatAll(" \x06[Murder] \x02%i \x01total players are required to play!", g_cPlayersNeeded.IntValue);
-		return;
-	}
-	
-	if (g_hEvidenceTimer != null)
-	{
-		KillTimer(g_hEvidenceTimer);
-		g_hEvidenceTimer = null;
-	}
-	g_hEvidenceTimer = CreateTimer(20.0, Timer_NewEvidence, _, TIMER_REPEAT);
-	
-	int index = GetRandomInt(0, array.Length - 1);
-	g_iMurder = array.Get(index);
-	GivePlayerItem(g_iMurder, "weapon_knife");
-	PrintToChat(g_iMurder, " \x06[Murder] \x01You are the \x02Murder \x01kill everyone!");
-	SetEntPropEnt(g_iMurder, Prop_Data, "m_hActiveWeapon", EntRefToEntIndex(g_iFakeWeapon[g_iMurder]));
-	KillTrail(g_iMurder);
-	array.Erase(index);
-	index = GetRandomInt(0, array.Length - 1);
-	int temp = array.Get(index);
-	GivePlayerItem(temp, "weapon_revolver");
-	g_iEvidenceCount[temp] = 3;
-	SetEntPropEnt(temp, Prop_Data, "m_hActiveWeapon", EntRefToEntIndex(g_iFakeWeapon[temp]));
-	PrintToChat(temp, " \x06[Murder] \x01You have been given the revolver, use it wisely.");
 }
 
 public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
@@ -246,6 +218,7 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
 		int weapon = GivePlayerItem(client, "weapon_decoy");
 		g_iFakeWeapon[client] = EntIndexToEntRef(weapon);
 		CreateTimer(1.0, Timer_CreateTrail, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(0.0, Timer_RemoveRadar, event.GetInt("userid"));
 	}
 }
 
@@ -274,22 +247,22 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 					g_fLastMessage[client] = GetGameTime();
 				}
 			}
-			else if(StrContains(class, "prop_dynamic", false) != -1)
+			else if (StrContains(class, "prop_dynamic", false) != -1)
 			{
 				float vec[3], pPos[3];
 				GetEntPropVector(aim, Prop_Data, "m_vecOrigin", vec);
 				GetClientAbsOrigin(client, pPos);
-				if(GetVectorDistance(vec, pPos) < 200.0)
+				if (GetVectorDistance(vec, pPos) < 200.0)
 				{
 					int index = -1;
-					if((index = IsActiveEvidence(aim)) != -1)
+					if ((index = IsActiveEvidence(aim)) != -1)
 					{
-						if(g_iEvidenceCount[client] < g_cEvidenceCount.IntValue)
+						if (g_iEvidenceCount[client] < g_cEvidenceCount.IntValue)
 						{
 							g_iEvidenceCount[client]++;
 							SetEntProp(aim, Prop_Send, "m_bShouldGlow", 0);
 							g_hActiveEvidence.Erase(index);
-							if(g_iEvidenceCount[client] >= g_cEvidenceCount.IntValue && g_iMurder != client)
+							if (g_iEvidenceCount[client] >= g_cEvidenceCount.IntValue && g_iMurder != client)
 							{
 								GivePlayerItem(client, "weapon_revolver");
 								SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", EntRefToEntIndex(g_iFakeWeapon[client]));
@@ -473,10 +446,76 @@ public Action Timer_CreateTrail(Handle timer, any userid)
 	return Plugin_Handled;
 }
 
+public Action Timer_RemoveRadar(Handle timer, any userid)
+{
+	int client = GetClientOfUserId(userid);
+	
+	if (client > 0 && IsClientInGame(client) && !IsFakeClient(client))
+		SetEntProp(client, Prop_Send, "m_iHideHUD", 1 << 12);
+}
+
+public Action Timer_SelectRoles(Handle timer)
+{
+	ArrayList array = new ArrayList();
+	for (int i = 1; i <= MaxClients; i++)
+	{
+		if (IsValidClient(i))
+		{
+			if (GetClientTeam(i) > 1)
+				array.Push(i);
+		}
+	}
+	
+	if (g_cPlayersNeeded.IntValue > array.Length)
+	{
+		g_bGameActive = false;
+		PrintToChatAll(" \x06[Murder] \x02%i \x01total players are required to play!", g_cPlayersNeeded.IntValue);
+		return;
+	}
+	
+	if (g_hEvidenceTimer != null)
+	{
+		KillTimer(g_hEvidenceTimer);
+		g_hEvidenceTimer = null;
+	}
+	g_hEvidenceTimer = CreateTimer(20.0, Timer_NewEvidence, _, TIMER_REPEAT);
+	
+	int index = GetRandomInt(0, array.Length - 1);
+	g_iMurder = array.Get(index);
+	GivePlayerItem(g_iMurder, "weapon_knife");
+	PrintToChat(g_iMurder, " \x06[Murder] \x01You are the \x02Murder \x01kill everyone!");
+	SetEntPropEnt(g_iMurder, Prop_Data, "m_hActiveWeapon", EntRefToEntIndex(g_iFakeWeapon[g_iMurder]));
+	KillTrail(g_iMurder);
+	array.Erase(index);
+	index = GetRandomInt(0, array.Length - 1);
+	int temp = array.Get(index);
+	GivePlayerItem(temp, "weapon_revolver");
+	g_iEvidenceCount[temp] = 3;
+	SetEntPropEnt(temp, Prop_Data, "m_hActiveWeapon", EntRefToEntIndex(g_iFakeWeapon[temp]));
+	PrintToChat(temp, " \x06[Murder] \x01You have been given the revolver, use it wisely.");
+}
+
 public void OnClientPutInServer(int client)
 {
 	SDKHook(client, SDKHook_PostThinkPost, Hook_OnPostThinkPost);
 	SDKHook(client, SDKHook_OnTakeDamage, Hook_OnTakeDamage);
+	SDKHook(client, SDKHook_WeaponCanUse, Hook_CanUseWeapon);
+}
+
+public Action Hook_CanUseWeapon(int client, int weapon)
+{
+	char sWeapon[32];
+	GetEntityClassname(weapon, sWeapon, sizeof(sWeapon));
+	
+	if (!StrEqual("weapon_decoy", sWeapon, false))
+	{
+		if (!StrEqual(sWeapon, "weapon_knife", false) && g_iMurder == client)
+			return Plugin_Handled;
+		else if (StrEqual(sWeapon, "weapon_knife", false) && g_iMurder != client)
+			return Plugin_Handled;
+	}
+	
+	return Plugin_Continue;
 }
 
 public void Hook_OnPostThinkPost(int client)
@@ -549,8 +588,8 @@ stock int IsActiveEvidence(int ent)
 	for (int i = 0; i < g_hActiveEvidence.Length; i++)
 	{
 		int item = g_hActiveEvidence.Get(i);
-		if(item == ent)
+		if (item == ent)
 			return i;
 	}
 	return -1;
-}
+} 
