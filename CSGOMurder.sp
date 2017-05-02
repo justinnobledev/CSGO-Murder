@@ -214,11 +214,19 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
 	int client = GetClientOfUserId(event.GetInt("userid"));
 	if (IsValidClient(client))
 	{
+		CreateTimer(1.0, Timer_CreateTrail, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(0.1, Timer_RemoveWeapon, client, TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(0.0, Timer_RemoveRadar, event.GetInt("userid"));
+	}
+}
+
+public Action Timer_RemoveWeapon(Handle timer, any client)
+{
+	if(IsValidClient(client))
+	{
 		StripClientWeapons(client);
 		int weapon = GivePlayerItem(client, "weapon_decoy");
 		g_iFakeWeapon[client] = EntIndexToEntRef(weapon);
-		CreateTimer(1.0, Timer_CreateTrail, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
-		CreateTimer(0.0, Timer_RemoveRadar, event.GetInt("userid"));
 	}
 }
 
