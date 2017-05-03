@@ -3,7 +3,7 @@
 #define DEBUG
 
 #define PLUGIN_AUTHOR "R3TROATTACK"
-#define PLUGIN_VERSION "1.2"
+#define PLUGIN_VERSION "1.2a"
 
 #include <sourcemod>
 #include <sdktools>
@@ -204,7 +204,8 @@ public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 		int ent = g_hActiveEvidence.Get(i);
 		if (IsValidEntity(ent))
 		{
-			SetEntProp(ent, Prop_Send, "m_bShouldGlow", 0);
+			if(HasEntProp(ent, Prop_Send, "m_bShouldGlow"))
+				SetEntProp(ent, Prop_Send, "m_bShouldGlow", 0);
 		}
 	}
 }
@@ -216,7 +217,7 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
 	{
 		CreateTimer(1.0, Timer_CreateTrail, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
 		CreateTimer(0.1, Timer_RemoveWeapon, client, TIMER_FLAG_NO_MAPCHANGE);
-		CreateTimer(0.0, Timer_RemoveRadar, event.GetInt("userid"));
+		CreateTimer(0.1, Timer_RemoveRadar, event.GetInt("userid"));
 	}
 }
 
@@ -268,7 +269,8 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 						if (g_iEvidenceCount[client] < g_cEvidenceCount.IntValue)
 						{
 							g_iEvidenceCount[client]++;
-							SetEntProp(aim, Prop_Send, "m_bShouldGlow", 0);
+							if(HasEntProp(aim, Prop_Send, "m_bShouldGlow"))
+								SetEntProp(aim, Prop_Send, "m_bShouldGlow", 0);
 							g_hActiveEvidence.Erase(index);
 							if (g_iEvidenceCount[client] >= g_cEvidenceCount.IntValue && g_iMurder != client)
 							{
@@ -423,13 +425,16 @@ public Action Timer_NewEvidence(Handle timer)
 	}
 	g_hActiveEvidence.Push(ent);
 	g_hMapProps.Erase(index);
-	SetEntProp(ent, Prop_Send, "m_bShouldGlow", 1);
-	SetEntProp(ent, Prop_Send, "m_nGlowStyle", 0);
-	SetEntPropFloat(ent, Prop_Send, "m_flGlowMaxDist", 1000.0);
-	SetEntData(ent, GetEntSendPropOffs(ent, "m_clrGlow"), 0, _, true);
-	SetEntData(ent, GetEntSendPropOffs(ent, "m_clrGlow") + 1, 255, _, true);
-	SetEntData(ent, GetEntSendPropOffs(ent, "m_clrGlow") + 2, 0, _, true);
-	SetEntData(ent, GetEntSendPropOffs(ent, "m_clrGlow") + 3, 255, _, true);
+	if(HasEntProp(ent, Prop_Send, "m_bShouldGlow"))
+	{
+		SetEntProp(ent, Prop_Send, "m_bShouldGlow", 1);
+		SetEntProp(ent, Prop_Send, "m_nGlowStyle", 0);
+		SetEntPropFloat(ent, Prop_Send, "m_flGlowMaxDist", 1000.0);
+		SetEntData(ent, GetEntSendPropOffs(ent, "m_clrGlow"), 0, _, true);
+		SetEntData(ent, GetEntSendPropOffs(ent, "m_clrGlow") + 1, 255, _, true);
+		SetEntData(ent, GetEntSendPropOffs(ent, "m_clrGlow") + 2, 0, _, true);
+		SetEntData(ent, GetEntSendPropOffs(ent, "m_clrGlow") + 3, 255, _, true);
+	}
 	return Plugin_Continue;
 }
 
