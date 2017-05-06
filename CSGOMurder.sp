@@ -199,6 +199,7 @@ public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast)
 
 public void Event_RoundEnd(Event event, const char[] name, bool dontBroadcast)
 {
+	g_iMurder = -1;
 	for (int i = 0; i < g_hActiveEvidence.Length; i++)
 	{
 		int ent = g_hActiveEvidence.Get(i);
@@ -334,7 +335,13 @@ public void CreateDeathRagdoll(int client)
 
 void CheckForWin()
 {
-	if (g_iMurder == -1 || !IsPlayerAlive(g_iMurder))
+	if(g_iMurder == -1 || !IsClientInGame(g_iMurder))
+	{
+		PrintToChatAll(" \x06[Murder] \x04Innocents \x01win!");
+		CS_TerminateRound(2.0, CSRoundEnd_CTWin);
+		return;
+	}
+	else if (g_iMurder == -1 || !IsPlayerAlive(g_iMurder))
 	{
 		PrintToChatAll(" \x06[Murder] \x04Innocents \x01win!");
 		CS_TerminateRound(2.0, CSRoundEnd_CTWin);
